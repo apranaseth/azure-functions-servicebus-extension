@@ -92,6 +92,8 @@ namespace Microsoft.Azure.WebJobs.ServiceBus.Listeners
             {
                 if (_isSessionsEnabled)
                 {
+                    _logger.LogInformation($"The evaluated 'SessionHandlerOptions.AutoComplete' setting has '{_serviceBusOptions.SessionHandlerOptions.AutoComplete}' value");
+
                     _clientEntity = _messagingProvider.CreateClientEntity(_entityPath, _serviceBusAccount.ConnectionString);
                     if (_clientEntity is QueueClient queueClient)
                     {
@@ -105,6 +107,8 @@ namespace Microsoft.Azure.WebJobs.ServiceBus.Listeners
                 }
                 else
                 {
+                    _logger.LogInformation($"The evaluated 'MessageHandlerOptions.AutoComplete' setting has '{_serviceBusOptions.MessageHandlerOptions.AutoComplete}' value");
+
                     Receiver.RegisterMessageHandler(ProcessMessageAsync, _serviceBusOptions.MessageHandlerOptions);
                 }
             }
@@ -273,6 +277,8 @@ namespace Microsoft.Azure.WebJobs.ServiceBus.Listeners
 
             Task.Run(async () =>
             {
+                _logger.LogInformation($"The evaluated 'BatchOptions.AutoComplete' has '{_serviceBusOptions.BatchOptions.AutoComplete}' value");
+
                 while (true)
                 {
                     try

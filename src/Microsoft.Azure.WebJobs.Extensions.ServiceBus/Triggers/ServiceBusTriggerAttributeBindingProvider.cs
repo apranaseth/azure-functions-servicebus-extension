@@ -77,6 +77,8 @@ namespace Microsoft.Azure.WebJobs.ServiceBus.Triggers
             attribute.Connection = Resolve(attribute.Connection);
             ServiceBusAccount account = new ServiceBusAccount(_options, _configuration, attribute);
 
+            OverrideHostWithFunctionOptionsIfNeeded(attribute);
+
             Func<ListenerFactoryContext, bool, Task<IListener>> createListener =
             (factoryContext, singleDispatch) =>
             {
@@ -97,6 +99,18 @@ namespace Microsoft.Azure.WebJobs.ServiceBus.Triggers
             }
 
             return _nameResolver.ResolveWholeString(queueName);
+        }
+
+        /// <summary>
+        /// Overrides the host level configuration if options are defined for the function.
+        /// </summary>
+        /// <param name="attribute">The trigger attribute.</param>
+        private void OverrideHostWithFunctionOptionsIfNeeded(ServiceBusTriggerAttribute attribute)
+        {
+            if (attribute.IsAutoCompleteOptionSet)
+            {
+                _options.BatchOptions.AutoComplete = _options.MessageHandlerOptions.AutoComplete = _options.SessionHandlerOptions.AutoComplete = attribute.AutoComplete;
+            }
         }
     }
 }
