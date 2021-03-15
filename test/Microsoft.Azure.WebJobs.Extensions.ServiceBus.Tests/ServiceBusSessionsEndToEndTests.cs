@@ -392,6 +392,18 @@ namespace Microsoft.Azure.WebJobs.Host.EndToEndTests
         }
 
         [Fact]
+        public async Task MessageDraining_AutoCompleteDisabledOnTrigger()
+        {
+            await TestSingleDrainMode<DrainModeTestJobQueue_AutoCompleteDisabledOnTrigger>(true);
+        }
+
+        [Fact]
+        public async Task MessageDraining_AutoCompleteEnabledOnTrigger()
+        {
+            await TestSingleDrainMode<DrainModeTestJobQueue_AutoCompleteEnabledOnTrigger>(true);
+        }
+
+        [Fact]
         public async Task MessageDraining_TopicWithSessions()
         {
             await TestSingleDrainMode<DrainModeTestJobTopic>(false);
@@ -401,6 +413,18 @@ namespace Microsoft.Azure.WebJobs.Host.EndToEndTests
         public async Task MessageDraining_QueueWithSessions_Batch()
         {
             await TestMultipleDrainMode<DrainModeTestJobQueueBatch>(true);
+        }
+
+        [Fact]
+        public async Task MessageDraining_QueueWithSessions_Batch_AutoCompleteDisabledOnTrigger()
+        {
+            await TestMultipleDrainMode<DrainModeTestJobQueueBatch_AutoCompleteDisabledOnTrigger>(true);
+        }
+
+        [Fact]
+        public async Task MessageDraining_QueueWithSessions_Batch_AutoCompleteEnabledOnTrigger()
+        {
+            await TestMultipleDrainMode<DrainModeTestJobQueueBatch_AutoCompleteEnabledOnTrigger>(true);
         }
 
         [Fact]
@@ -585,6 +609,48 @@ namespace Microsoft.Azure.WebJobs.Host.EndToEndTests
             }
         }
 
+        public class DrainModeTestJobQueue_AutoCompleteDisabledOnTrigger
+        {
+            public async static Task QueueWithSessions_AutoCompleteDisabledOnTrigger(
+                [ServiceBusTrigger(_queueName, IsSessionsEnabled = true, AutoComplete = false)] Message msg,
+                IMessageSession messageSession,
+                CancellationToken cancellationToken,
+                ILogger logger)
+            {
+                logger.LogInformation($"DrainModeValidationFunctions.QueueWithSessions_AutoCompleteDisabledOnTrigger: message data {msg.Body}");
+                _drainValidationPreDelay.Set();
+                await DrainModeHelper.WaitForCancellation(cancellationToken);
+                Assert.True(cancellationToken.IsCancellationRequested);
+                await messageSession.CompleteAsync(msg.SystemProperties.LockToken);
+                _drainValidationPostDelay.Set();
+            }
+        }
+
+        public class DrainModeTestJobQueue_AutoCompleteEnabledOnTrigger
+        {
+            public async static Task QueueWithSessions_AutoCompleteEnabledOnTrigger(
+                [ServiceBusTrigger(_queueName, IsSessionsEnabled = true, AutoComplete = true)] Message msg,
+                IMessageSession messageSession,
+                CancellationToken cancellationToken,
+                ILogger logger)
+            {
+                logger.LogInformation($"DrainModeValidationFunctions.QueueNoSessions_AutoCompleteEnabledOnTrigger: message data {msg.Body}");
+                _drainValidationPreDelay.Set();
+                await DrainModeHelper.WaitForCancellation(cancellationToken);
+                Assert.True(cancellationToken.IsCancellationRequested);
+                try
+                {
+                    await messageSession.CompleteAsync(msg.SystemProperties.LockToken);
+                }
+                catch (Exception ex)
+                {
+                    // Since function level auto complete is enabled, the complete should fail here.
+                    Assert.NotNull(ex);
+                }
+                _drainValidationPostDelay.Set();
+            }
+        }
+
         public class DrainModeTestJobTopic
         {
             public async static Task TopicWithSessions(
@@ -620,6 +686,56 @@ namespace Microsoft.Azure.WebJobs.Host.EndToEndTests
                 foreach (Message msg in array)
                 {
                     await messageSession.CompleteAsync(msg.SystemProperties.LockToken);
+                }
+                _drainValidationPostDelay.Set();
+            }
+        }
+
+        public class DrainModeTestJobQueueBatch_AutoCompleteDisabledOnTrigger
+        {
+            public async static Task QueueWithSessionsBatch_AutoCompleteDisabledOnTrigger(
+               [ServiceBusTrigger(_queueName, IsSessionsEnabled = true, AutoComplete = false)] Message[] array,
+               IMessageSession messageSession,
+               CancellationToken cancellationToken,
+               ILogger logger)
+            {
+                Assert.True(array.Length > 0);
+                logger.LogInformation($"DrainModeTestJobBatch.QueueWithSessionsBatch_AutoCompleteDisabledOnTrigger: received {array.Length} messages");
+                _drainValidationPreDelay.Set();
+                await DrainModeHelper.WaitForCancellation(cancellationToken);
+                Assert.True(cancellationToken.IsCancellationRequested);
+                foreach (Message msg in array)
+                {
+                    await messageSession.CompleteAsync(msg.SystemProperties.LockToken);
+                }
+                _drainValidationPostDelay.Set();
+            }
+        }
+
+        public class DrainModeTestJobQueueBatch_AutoCompleteEnabledOnTrigger
+        {
+            public async static Task QueueWithSessionsBatch_AutoCompleteEnabledOnTrigger(
+               [ServiceBusTrigger(_queueName, IsSessionsEnabled = true, AutoComplete = true)] Message[] array,
+               IMessageSession messageSession,
+               CancellationToken cancellationToken,
+               ILogger logger)
+            {
+                Assert.True(array.Length > 0);
+                logger.LogInformation($"DrainModeTestJobBatch.QueueWithSessionsBatch_AutoCompleteEnabledOnTrigger: received {array.Length} messages");
+                _drainValidationPreDelay.Set();
+                await DrainModeHelper.WaitForCancellation(cancellationToken);
+                Assert.True(cancellationToken.IsCancellationRequested);
+                try
+                {
+                    foreach (Message msg in array)
+                    {
+                        await messageSession.CompleteAsync(msg.SystemProperties.LockToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Since function level auto complete is enabled, the complete should fail here.
+                    Assert.NotNull(ex);
                 }
                 _drainValidationPostDelay.Set();
             }
